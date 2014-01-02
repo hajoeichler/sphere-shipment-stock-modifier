@@ -1,2 +1,2 @@
-sphere-stock-reducer
-====================
+sphere-shipment-stock-modifier
+===============================
