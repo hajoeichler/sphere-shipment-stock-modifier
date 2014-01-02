@@ -58,7 +58,7 @@ class ShipmentStockModifier
           posts.push @updateInventoryEntry(action)
         Q.all(posts).then (msg) =>
           @saveState(order, result.state).then (msg) ->
-            deferred.resolve "Inventory updated"
+            deferred.resolve "Inventory updated."
           .fail (msg) ->
             deferred.reject msg
         .fail (msg) ->
@@ -96,7 +96,7 @@ class ShipmentStockModifier
         deferred.reject 'Error on fetching modifier state info: ' + error
       else
         if response.statusCode is 200
-          deferred.resolve JSON.parse(body)
+          deferred.resolve JSON.parse(body).value
         else if response.statusCode is 404
           obj = @initState order
           deferred.resolve obj
@@ -149,7 +149,7 @@ class ShipmentStockModifier
         deferred.reject "Error on updating modifier state info: " + error
       else
         if response.statusCode is 201 or response.statusCode is 200
-          deferred.resolve JSON.parse(body)
+          deferred.resolve "Modifier state saved."
         else
           deferred.reject "Problem on updating modifier state (status: #{response.statusCode}): " + body
     deferred.promise
@@ -175,7 +175,7 @@ class ShipmentStockModifier
                 deferred.reject 'Error on updating inventory entry: ' + error
               else
                 if response.statusCode is 201 or response.statusCode is 200
-                  deferred.resolve body
+                  deferred.resolve "Inventory entry unpdated."
                 else
                   deferred.reject "Problem on updating inventory entry (status: #{response.statusCode}): " + body
         else

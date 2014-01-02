@@ -48,7 +48,8 @@ describe '#getState', ->
       id: '123'
     spyOn(@modifier.rest, 'GET').andCallFake((path, callback) =>
       body =
-        status: @modifier.STATE_NOT_SHIPPED
+        value:
+          status: @modifier.STATE_NOT_SHIPPED
       callback(null, {statusCode: 200}, JSON.stringify(body)))
     @modifier.getState(order).then (s) =>
       expect(@modifier.rest.GET).toHaveBeenCalledWith('/custom-objects/ShipmentStockModifier/123', jasmine.any(Function))

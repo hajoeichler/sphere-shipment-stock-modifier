@@ -37,11 +37,16 @@ describe '#run', ->
       @modifier.run [order], (msg) =>
         expect(msg.status).toBe true
         expect(msg.message.length).toBe 1
-        expect(msg.message[0]).toBe 'Inventory updated'
-        @modifier.rest.GET "/inventory?where=" + encodeURIComponent("sku=\"#{sku}\""), (error, response, body) ->
+        expect(msg.message[0]).toBe 'Inventory updated.'
+        @modifier.rest.GET "/inventory?where=" + encodeURIComponent("sku=\"#{sku}\""), (error, response, body) =>
           inventoryEntries = JSON.parse(body).results
           expect(inventoryEntries[0].quantityOnStock).toBe 4
-          done()
+          @modifier.run [order], (msg) =>
+            expect(msg.status).toBe true
+            @modifier.rest.GET "/inventory?where=" + encodeURIComponent("sku=\"#{sku}\""), (error, response, body) ->
+              inventoryEntries = JSON.parse(body).results
+              expect(inventoryEntries[0].quantityOnStock).toBe 1
+              done()
       .fail (msg) ->
         console.log msg
         expect(false).toBe true
