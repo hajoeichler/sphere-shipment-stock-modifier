@@ -36,19 +36,38 @@ class ShipmentStockModifier
 
   run: (orders, callback) ->
     throw new Error 'Callback must be a function!' unless _.isFunction callback
-    # TODO
+    if orders.length is 0
+      @returnResult true, 'Nothing to do.', callback
+      return
+    promises = []
+    for order in orders
+      promises.push @modifyOrder(order)
+    Q.all(promises).then (msg) =>
+      @returnResult true, msg, callback
+    .fail (msg) =>
+      @returnResult false, msg, callback
 
   modifyOrder: (order) ->
     deferred = Q.defer()
     @getState(order).then (state) =>
-      state.state = @STATE_MODIFING
-      @saveState(state).then (msg) =>
-        @modifyState(order, state).then (result) =>
-          posts = []
-          for action in result.actions
-            posts.push updateInventoryItem(action)
-          Q.all(posts).then (msg) =>
-            @saveState(result.state).then (msg) =>
+      state.status = @STATE_MODIFING
+      @saveState(order, state).then (msg) =>
+        result = @modifyState order, state
+        posts = []
+        for action in result.actions
+          posts.push @updateInventoryEntry(action)
+        Q.all(posts).then (msg) =>
+          @saveState(order, result.state).then (msg) ->
+            deferred.resolve "Inventory updated"
+          .fail (msg) ->
+            deferred.reject msg
+        .fail (msg) ->
+          deferred.reject msg
+      .fail (msg) ->
+        deferred.reject msg
+    .fail (msg) ->
+      deferred.reject msg
+    deferred.promise
 
   returnResult: (positiveFeedback, msg, callback) ->
     if @options.showProgress
@@ -56,7 +75,7 @@ class ShipmentStockModifier
     d =
       component: 'ShipmentStockModifier'
       status: positiveFeedback
-      msg: msg
+      message: msg
     if @log
       logLevel = if positiveFeedback then 'info' else 'err'
       @log.log logLevel, d
@@ -64,7 +83,7 @@ class ShipmentStockModifier
 
   initState: (order) ->
     obj =
-      state: @STATE_INIT
+      status: @STATE_INIT
       changes: {}
     @eachSKU order, (sku, lineItem) ->
       obj.changes[sku] = 0
@@ -92,17 +111,21 @@ class ShipmentStockModifier
     if order.shipmentState is 'Shipped'
       @eachSKU order, (sku, lineItem) ->
         res.state.changes[sku] = lineItem.quantity
-        action =
-          version: 1
-          actions: [
-            # TODO
-          ]
-        res.actions.push action
-      res.state.state = @STATE_SHIPPED
+        a =
+          sku: sku
+          quantity: lineItem.quantity
+          action: 'removeQuantity'
+        res.actions.push a
+      res.state.status = @STATE_SHIPPED
     else
-      @eachSKU order, (sku, _) ->
-        res.state[sku] = 0
-      res.state.state = @STATE_NOT_SHIPPED
+      @eachSKU order, (sku, lineItem) ->
+        res.state.changes[sku] = 0
+        a =
+          sku: sku
+          quantity: lineItem.quantity
+          action: 'addQuantity'
+        res.actions.push a
+      res.state.status = @STATE_NOT_SHIPPED
     res
 
   eachSKU: (order, each) ->
@@ -117,37 +140,46 @@ class ShipmentStockModifier
 
   saveState: (order, state) ->
     deferred = Q.defer()
-    @rest.POST "/custom-objects/#{@NAMESPACE}/#{order.id}", JSON.stringify(state), (error, response, body) ->
+    obj =
+      container: @NAMESPACE
+      key: order.id
+      value: state
+    @rest.POST "/custom-objects", JSON.stringify(obj), (error, response, body) ->
       if error
-        deferred.reject 'Error on updating modifier state info: ' + error
+        deferred.reject "Error on updating modifier state info: " + error
       else
-        if response.statusCode is 200
-          deferred.resolve JSON.parse body
+        if response.statusCode is 201 or response.statusCode is 200
+          deferred.resolve JSON.parse(body)
         else
-          deferred.reject 'Problem on updating order status (status: #{response.statusCode}): ' + body
+          deferred.reject "Problem on updating modifier state (status: #{response.statusCode}): " + body
     deferred.promise
 
-  updateInventory: (action) ->
+  updateInventoryEntry: (action) ->
     deferred = Q.defer()
+    query = encodeURIComponent "sku=\"#{action.sku}\""
     @rest.GET "/inventory?where=#{query}", (error, response, body) =>
       if error
         deferred.reject 'Error on getting inventory entry: ' + error
       else
         if response.statusCode is 200
-          inventoryEntry = JSON.parse body
-          data =
-            version: inventoryEntry.version
-            actions: [ action ]
-          @rest.POST "/inventory/#{inventoryEntry.id}", JSON.stringify(data), (error, response, body) ->
-            if error
-              deferred.reject 'Error on updating inventory entry: ' + error
-            else
-              if response.statusCode is 200
-                deferred.resolve body
+          entries = JSON.parse(body).results
+          if entries.length is 0
+            deferred.reject "Can't find inventory entry for SKU '#{action.sku}'"
+          else
+            inventoryEntry = entries[0]
+            data =
+              version: inventoryEntry.version
+              actions: [ action ]
+            @rest.POST "/inventory/#{inventoryEntry.id}", JSON.stringify(data), (error, response, body) ->
+              if error
+                deferred.reject 'Error on updating inventory entry: ' + error
               else
-                'Problem on updating inventory entry (status: #{response.statusCode}): ' + body
+                if response.statusCode is 201 or response.statusCode is 200
+                  deferred.resolve body
+                else
+                  deferred.reject "Problem on updating inventory entry (status: #{response.statusCode}): " + body
         else
-          deferred.reject 'Problem on getting inventory entry (status: #{response.statusCode}): ' + body
+          deferred.reject "Problem on getting inventory entry (status: #{response.statusCode}): " + body
     deferred.promise
 
 module.exports = ShipmentStockModifier

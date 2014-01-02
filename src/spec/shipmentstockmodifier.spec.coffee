@@ -1,6 +1,6 @@
 ShipmentStockModifier = require('../main').ShipmentStockModifier
 
-describe 'ShipmentStockModifier', ->
+xdescribe 'ShipmentStockModifier', ->
   it 'should throw error that there is no config', ->
     expect(-> new ShipmentStockModifier()).toThrow new Error 'No configuration in options!'
     expect(-> new ShipmentStockModifier({})).toThrow new Error 'No configuration in options!'
@@ -27,7 +27,7 @@ describe '#initState', ->
     order =
       id: '123'
     s = @modifier.initState order
-    expect(s.state).toBe @modifier.STATE_INIT
+    expect(s.status).toBe @modifier.STATE_INIT
 
   it 'should create entry for each line item', ->
     order =
@@ -36,7 +36,7 @@ describe '#initState', ->
         { variant: { sku: 'mySKU' } }
       ]
     s = @modifier.initState order
-    expect(s.state).toBe @modifier.STATE_INIT
+    expect(s.status).toBe @modifier.STATE_INIT
     expect(s.changes['mySKU']).toBe 0
 
 describe '#getState', ->
@@ -48,11 +48,11 @@ describe '#getState', ->
       id: '123'
     spyOn(@modifier.rest, 'GET').andCallFake((path, callback) =>
       body =
-        state: @modifier.STATE_NOT_SHIPPED
+        status: @modifier.STATE_NOT_SHIPPED
       callback(null, {statusCode: 200}, JSON.stringify(body)))
     @modifier.getState(order).then (s) =>
       expect(@modifier.rest.GET).toHaveBeenCalledWith('/custom-objects/ShipmentStockModifier/123', jasmine.any(Function))
-      expect(s.state).toBe @modifier.STATE_NOT_SHIPPED
+      expect(s.status).toBe @modifier.STATE_NOT_SHIPPED
       done()
     .fail (msg) ->
       console.log msg
@@ -66,7 +66,7 @@ describe '#getState', ->
       callback(null, { statusCode: 404 }, '{}'))
     @modifier.getState(order).then (s) =>
       expect(@modifier.rest.GET).toHaveBeenCalledWith('/custom-objects/ShipmentStockModifier/xyz', jasmine.any(Function))
-      expect(s.state).toBe @modifier.STATE_INIT
+      expect(s.status).toBe @modifier.STATE_INIT
       done()
     .fail (msg) ->
       console.log msg
@@ -79,7 +79,7 @@ describe '#modifyState', ->
 
   it 'should store quantity if state is shipped', ->
     state =
-      state: @modifier.STATE_INIT
+      status: @modifier.STATE_INIT
       changes:
         mySKU: 0
     order =
@@ -90,11 +90,34 @@ describe '#modifyState', ->
       ]
     res = @modifier.modifyState(order, state)
     s = res.state
-    expect(s.state).toBe @modifier.STATE_SHIPPED
+    expect(s.status).toBe @modifier.STATE_SHIPPED
     expect(s.changes['mySKU']).toBe 3
+    expect(res.actions.length).toBe 1
+    a = res.actions[0]
+    expect(a.sku).toBe 'mySKU'
+    expect(a.quantity).toBe 3
+    expect(a.action).toBe 'removeQuantity'
 
   it 'should store zeros if state is not shipped', ->
-    # TODO
+    state =
+      status: @modifier.STATE_INIT
+      changes:
+        mySKU: 0
+    order =
+      id: 'xyz'
+      shipmentState: 'Pending'
+      lineItems: [
+        { quantity: 7, variant: { sku: 'mySKU' }}
+      ]
+    res = @modifier.modifyState(order, state)
+    s = res.state
+    expect(s.status).toBe @modifier.STATE_NOT_SHIPPED
+    expect(s.changes['mySKU']).toBe 0
+    expect(res.actions.length).toBe 1
+    a = res.actions[0]
+    expect(a.sku).toBe 'mySKU'
+    expect(a.quantity).toBe 7
+    expect(a.action).toBe 'addQuantity'
 
 describe '#saveState', ->
   beforeEach ->
@@ -102,13 +125,13 @@ describe '#saveState', ->
 
   it 'should store the state', ->
     state =
-      state: @modifier.STATE_SHIPPED
+      status: @modifier.STATE_SHIPPED
       changes:
         mySKU: 2
     order =
       id: 'abc'
     spyOn(@modifier.rest, 'POST').andCallFake((path, body, callback) ->
-      callback(null, { statusCode: 200 }, '{}'))
+      callback(null, { statusCode: 201 }, '{}'))
     @modifier.saveState(order, state).then (res) =>
       expect(@modifier.rest.POST).toHaveBeenCalledWith('/custom-objects/ShipmentStockModifier/abc', jasmine,any(Object), jasmine.any(Function))
       done()
