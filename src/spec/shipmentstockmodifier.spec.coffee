@@ -1,6 +1,6 @@
 ShipmentStockModifier = require('../main').ShipmentStockModifier
 
-xdescribe 'ShipmentStockModifier', ->
+describe 'ShipmentStockModifier', ->
   it 'should throw error that there is no config', ->
     expect(-> new ShipmentStockModifier()).toThrow new Error 'No configuration in options!'
     expect(-> new ShipmentStockModifier({})).toThrow new Error 'No configuration in options!'

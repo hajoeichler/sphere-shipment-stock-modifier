@@ -10,7 +10,7 @@ describe '#run', ->
   beforeEach ->
     @modifier = new ShipmentStockModifier Config
 
-  xit 'Nothing to do', (done) ->
+  it 'Nothing to do', (done) ->
     @modifier.run [], (msg) ->
       expect(msg.status).toBe true
       expect(msg.message).toBe 'Nothing to do.'
