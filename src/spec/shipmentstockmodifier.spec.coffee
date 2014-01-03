@@ -81,8 +81,7 @@ describe '#modifyState', ->
   it 'should store quantity if state is shipped', ->
     state =
       status: @modifier.STATE_INIT
-      changes:
-        mySKU: 0
+      changes: {}
     order =
       id: 'xyz'
       shipmentState: 'Shipped'
@@ -101,9 +100,9 @@ describe '#modifyState', ->
 
   it 'should store zeros if state is not shipped', ->
     state =
-      status: @modifier.STATE_INIT
+      status: @modifier.STATE_SHIPPED
       changes:
-        mySKU: 0
+        mySKU: 7
     order =
       id: 'xyz'
       shipmentState: 'Pending'

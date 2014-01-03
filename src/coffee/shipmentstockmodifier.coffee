@@ -50,8 +50,9 @@ class ShipmentStockModifier
   modifyOrder: (order) ->
     deferred = Q.defer()
     @getState(order).then (state) =>
-      state.status = @STATE_MODIFING
-      @saveState(order, state).then (msg) =>
+      mod = _.clone(state)
+      mod.status = @STATE_MODIFING
+      @saveState(order, mod).then (msg) =>
         result = @modifyState order, state
         posts = []
         for action in result.actions
@@ -108,7 +109,7 @@ class ShipmentStockModifier
     res =
       state: state
       actions: []
-    if order.shipmentState is 'Shipped'
+    if order.shipmentState is 'Shipped' and state.status != @STATE_SHIPPED
       @eachSKU order, (sku, lineItem) ->
         res.state.changes[sku] = lineItem.quantity
         a =
@@ -117,7 +118,7 @@ class ShipmentStockModifier
           action: 'removeQuantity'
         res.actions.push a
       res.state.status = @STATE_SHIPPED
-    else
+    else if order.shipmentState != 'Shipped' and state.status is @STATE_SHIPPED
       @eachSKU order, (sku, lineItem) ->
         res.state.changes[sku] = 0
         a =

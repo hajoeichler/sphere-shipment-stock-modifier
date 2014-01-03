@@ -45,7 +45,7 @@ describe '#run', ->
             expect(msg.status).toBe true
             @modifier.rest.GET "/inventory?where=" + encodeURIComponent("sku=\"#{sku}\""), (error, response, body) ->
               inventoryEntries = JSON.parse(body).results
-              expect(inventoryEntries[0].quantityOnStock).toBe 1
+              expect(inventoryEntries[0].quantityOnStock).toBe 4
               done()
       .fail (msg) ->
         console.log msg
