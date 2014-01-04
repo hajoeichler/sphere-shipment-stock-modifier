@@ -1,9 +1,12 @@
 {
   "name": "sphere-shipment-stock-modifier",
   "description": "This component reduces the stock according to order status updates.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "homepage": "https://github.com/hajoeichler/sphere-shipment-stock-modifier",
-  "keywords": [ "sphere", "api" ],
+  "keywords": [
+    "sphere",
+    "api"
+  ],
   "author": {
     "name": "Hajo Eichler",
     "email": "hajo.eichler@commercetools.de"
