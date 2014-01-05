@@ -1,8 +1,6 @@
 _ = require('underscore')._
 Rest = require('sphere-node-connect').Rest
 CommonUpdater = require('sphere-node-sync').CommonUpdater
-ProgressBar = require 'progress'
-logentries = require 'node-logentries'
 Q = require 'q'
 
 class ShipmentStockModifier extends CommonUpdater
