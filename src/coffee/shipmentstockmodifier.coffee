@@ -37,10 +37,10 @@ class ShipmentStockModifier extends CommonUpdater
     if _.size(orders) is 0
       @returnResult true, 'Nothing to do.', callback
       return
+    # @initProgressBar 'Updating Inventory', _.size(orders)
     promises = []
     for order in orders
       promises.push @modifyOrder(order)
-#    @initProgressBar 'Updating Inventory', _.size(promises)
     Q.all(promises).then (msg) =>
       @returnResult true, msg, callback
     .fail (msg) =>
@@ -49,17 +49,17 @@ class ShipmentStockModifier extends CommonUpdater
   modifyOrder: (order) ->
     deferred = Q.defer()
     @getState(order).then (state) =>
-      mod = _.clone(state)
-      mod.status = @STATE_MODIFING
-      @saveState(order, mod).then (msg) =>
-        result = @modifyState order, state
-        posts = []
-        for action in result.actions
-          posts.push @updateInventoryEntry(action)
-        @tickProgress()
-        if _.size(posts) is 0
-          deferred.resolve "Nothing to update."
-        else
+      result = @modifyState order, state
+      posts = []
+      for action in result.actions
+        posts.push @updateInventoryEntry(action)
+      @tickProgress()
+      if _.size(posts) is 0
+        deferred.resolve "Nothing to update."
+      else
+        mod = _.clone(state)
+        mod.status = @STATE_MODIFING
+        @saveState(order, mod).then (msg) =>
           Q.all(posts).then (msg) =>
             @saveState(order, result.state).then (msg) ->
               deferred.resolve "Inventory updated."
@@ -67,8 +67,8 @@ class ShipmentStockModifier extends CommonUpdater
               deferred.reject msg
           .fail (msg) ->
             deferred.reject msg
-      .fail (msg) ->
-        deferred.reject msg
+        .fail (msg) ->
+          deferred.reject msg
     .fail (msg) ->
       deferred.reject msg
     deferred.promise
