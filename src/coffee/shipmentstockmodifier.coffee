@@ -1,14 +1,12 @@
 _ = require('underscore')._
 Rest = require('sphere-node-connect').Rest
-ProgressBar = require 'progress'
-logentries = require 'node-logentries'
+CommonUpdater = require('sphere-node-sync').CommonUpdater
 Q = require 'q'
 
-class ShipmentStockModifier
-  constructor: (@options) ->
-    throw new Error 'No configuration in options!' if not @options or not @options.config
-    @rest = new Rest config: @options.config
-    @log = logentries.logger token: @options.logentries.token if @options.logentries
+class ShipmentStockModifier extends CommonUpdater
+  constructor: (options = {}) ->
+    throw new Error 'No configuration in options!' unless options.config
+    @rest = new Rest config: options.config
     @NAMESPACE = 'ShipmentStockModifier'
     @STATE_INIT = 0
     @STATE_MODIFING = -1
@@ -27,7 +25,7 @@ class ShipmentStockModifier
     @rest.GET "/orders?limit=0", (error, response, body) ->
       if error
         deferred.reject "Error on fetching orders: " + error
-      else if response.statusCode != 200
+      else if response.statusCode isnt 200
         deferred.reject "Problem on fetching orders (status: #{response.statusCode}): " + body
       else
         orders = JSON.parse(body).results
@@ -36,9 +34,10 @@ class ShipmentStockModifier
 
   run: (orders, callback) ->
     throw new Error 'Callback must be a function!' unless _.isFunction callback
-    if orders.length is 0
+    if _.size(orders) is 0
       @returnResult true, 'Nothing to do.', callback
       return
+    # @initProgressBar 'Updating Inventory', _.size(orders)
     promises = []
     for order in orders
       promises.push @modifyOrder(order)
@@ -50,37 +49,29 @@ class ShipmentStockModifier
   modifyOrder: (order) ->
     deferred = Q.defer()
     @getState(order).then (state) =>
-      mod = _.clone(state)
-      mod.status = @STATE_MODIFING
-      @saveState(order, mod).then (msg) =>
-        result = @modifyState order, state
-        posts = []
-        for action in result.actions
-          posts.push @updateInventoryEntry(action)
-        Q.all(posts).then (msg) =>
-          @saveState(order, result.state).then (msg) ->
-            deferred.resolve "Inventory updated."
+      result = @modifyState order, state
+      posts = []
+      for action in result.actions
+        posts.push @updateInventoryEntry(action)
+      @tickProgress()
+      if _.size(posts) is 0
+        deferred.resolve "Nothing to update."
+      else
+        mod = _.clone(state)
+        mod.status = @STATE_MODIFING
+        @saveState(order, mod).then (msg) =>
+          Q.all(posts).then (msg) =>
+            @saveState(order, result.state).then (msg) ->
+              deferred.resolve "Inventory updated."
+            .fail (msg) ->
+              deferred.reject msg
           .fail (msg) ->
             deferred.reject msg
         .fail (msg) ->
           deferred.reject msg
-      .fail (msg) ->
-        deferred.reject msg
     .fail (msg) ->
       deferred.reject msg
     deferred.promise
-
-  returnResult: (positiveFeedback, msg, callback) ->
-    if @options.showProgress
-      @bar.terminate() if @bar
-    d =
-      component: 'ShipmentStockModifier'
-      status: positiveFeedback
-      message: msg
-    if @log
-      logLevel = if positiveFeedback then 'info' else 'err'
-      @log.log logLevel, d
-    callback d
 
   initState: (order) ->
     obj =
@@ -109,7 +100,7 @@ class ShipmentStockModifier
     res =
       state: state
       actions: []
-    if order.shipmentState is 'Shipped' and state.status != @STATE_SHIPPED
+    if order.shipmentState is 'Shipped' and state.status isnt @STATE_SHIPPED
       @eachSKU order, (sku, lineItem) ->
         res.state.changes[sku] = lineItem.quantity
         a =
@@ -118,7 +109,7 @@ class ShipmentStockModifier
           action: 'removeQuantity'
         res.actions.push a
       res.state.status = @STATE_SHIPPED
-    else if order.shipmentState != 'Shipped' and state.status is @STATE_SHIPPED
+    else if order.shipmentState isnt 'Shipped' and state.status is @STATE_SHIPPED
       @eachSKU order, (sku, lineItem) ->
         res.state.changes[sku] = 0
         a =
@@ -164,7 +155,7 @@ class ShipmentStockModifier
       else
         if response.statusCode is 200
           entries = JSON.parse(body).results
-          if entries.length is 0
+          if _.size(entries) is 0
             deferred.reject "Can't find inventory entry for SKU '#{action.sku}'"
           else
             inventoryEntry = entries[0]

@@ -36,8 +36,7 @@ describe '#run', ->
     @modifier.rest.POST '/inventory', JSON.stringify(inventoryEntry), (error, response, body) =>
       @modifier.run [order], (msg) =>
         expect(msg.status).toBe true
-        expect(msg.message.length).toBe 1
-        expect(msg.message[0]).toBe 'Inventory updated.'
+        expect(msg.message).toBe 'Inventory updated.'
         @modifier.rest.GET "/inventory?where=" + encodeURIComponent("sku=\"#{sku}\""), (error, response, body) =>
           inventoryEntries = JSON.parse(body).results
           expect(inventoryEntries[0].quantityOnStock).toBe 4

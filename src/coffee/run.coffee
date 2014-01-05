@@ -14,6 +14,7 @@ modifier = new ShipmentStockModifier options
 modifier.getOrders(modifier.rest).then (orders) ->
   modifier.run orders, (msg) ->
     console.log msg
+    process.exit 1 unless msg.status
 .fail (msg) ->
   console.log msg
-  process.exit -1
+  process.exit 2
