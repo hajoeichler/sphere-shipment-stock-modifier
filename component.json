@@ -1,0 +1,33 @@
+{
+    "title": "sphere-shipment-stock-modifier",
+    "description": "Updates your inventory according to the shipment state of your SPHERE.IO orders",
+    "url" : "http://www.commercetools.com",
+    "credentials": {
+        "fields": {
+            "projectKey": {
+                "viewClass": "TextFieldView",
+                "label": "Master Project Key",
+                "required": true,
+                "placeholder": "Paste your project key"
+            },
+            "clientId": {
+                "viewClass": "TextFieldView",
+                "label": "Master Client Id",
+                "required": true,
+                "placeholder": "Paste your client id"
+            },
+            "clientSecret": {
+                "viewClass": "TextFieldView",
+                "label": "Master Client Secret",
+                "required": true,
+                "placeholder": "Paste your client secret"
+            }
+        }
+    },
+    "actions": {
+        "services": {
+            "main": "elasticio.js",
+            "title": "Shipment Stock Modifier"
+        }
+    }
+}
